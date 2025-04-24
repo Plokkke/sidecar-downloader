@@ -98,6 +98,13 @@ class TestImpl extends DownloadService {
   public save(infos: DownloadInfos, stream: Readable): DownloadingItem {
     return super.save(infos, stream);
   }
+
+  async getMediaInfo(): Promise<DownloadInfos> {
+    return {
+      fileName: 'test.txt',
+      size: 100,
+    };
+  }
 }
 
 const downloadConfig: DownloadConfig = {
@@ -168,12 +175,12 @@ describe('Download service test suite', () => {
 
       const item = service.save(infos, rStream);
 
-      expect(item).toEqual(expected);
+      expect(item).toMatchObject(expected);
       verify(context, `${downloadConfig.moviesPath}/${infos.fileName}`);
 
       streamData(rStream, content);
       await streamFinished(context.wStream);
-      expect(item).toEqual({
+      expect(item).toMatchObject({
         ...expected,
         status: 'Completed',
         downloaded: content.length,
@@ -188,12 +195,12 @@ describe('Download service test suite', () => {
 
       const item = service.save(infos, rStream);
 
-      expect(item).toEqual(expected);
+      expect(item).toMatchObject(expected);
       verify(context, `${downloadConfig.showsPath}/test.Show.name/Season04/${infos.fileName}`);
 
       streamData(rStream, content);
       await streamFinished(context.wStream);
-      expect(item).toEqual({
+      expect(item).toMatchObject({
         ...expected,
         status: 'Completed',
         downloaded: content.length,
@@ -208,12 +215,12 @@ describe('Download service test suite', () => {
 
       const item = service.save(infos, rStream);
 
-      expect(item).toEqual(expected);
+      expect(item).toMatchObject(expected);
       verify(context, `${downloadConfig.showsPath}/test.Show.name/Season04/${infos.fileName}`);
 
       streamData(rStream, content, true);
       await streamFinished(context.wStream);
-      expect(item).toEqual({
+      expect(item).toMatchObject({
         ...expected,
         status: 'Error',
         downloaded: content.length,
@@ -228,12 +235,12 @@ describe('Download service test suite', () => {
 
       const item = service.save(infos, rStream);
 
-      expect(item).toEqual(expected);
+      expect(item).toMatchObject(expected);
       verify(context, `${downloadConfig.moviesPath}/${infos.fileName}`);
 
       streamData(rStream, content);
       await streamFinished(context.wStream);
-      expect(item).toEqual({
+      expect(item).toMatchObject({
         ...expected,
         status: 'Completed',
         downloaded: content.length,

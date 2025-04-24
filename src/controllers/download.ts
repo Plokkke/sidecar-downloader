@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Logger, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Inject,
+  Logger,
+  NotFoundException,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 
 import { MatchingHeaders } from '@/decorators/MatchingHeaders';
 import { MatchingHeadersGuard } from '@/guards/MatchingHeaderGuard';
@@ -57,5 +68,26 @@ export class DownloadController {
     }
 
     return item;
+  }
+
+  @Delete('/:id')
+  @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
+  @UseGuards(MatchingHeadersGuard)
+  async cancelDownload(@Param('id') id: string): Promise<{ success: boolean }> {
+    this.logger.log(`Cancelling download with id ${id}`);
+
+    let cancelled = false;
+    for (const service of this.downloadServices) {
+      if (service.cancel(id)) {
+        cancelled = true;
+        break;
+      }
+    }
+
+    if (!cancelled) {
+      throw new NotFoundException(`Download with id ${id} not found or already completed`);
+    }
+
+    return { success: true };
   }
 }

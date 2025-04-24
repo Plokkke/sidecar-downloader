@@ -16,7 +16,12 @@ export const downloadConfigSchema = z.object({
 
 export type DownloadConfig = z.infer<typeof downloadConfigSchema>;
 
-function initItem(infos: DownloadInfos): DownloadingItem {
+type ActiveDownload = DownloadingItem & {
+  stream: Readable;
+  filePath: string;
+};
+
+function initItem(infos: DownloadInfos, stream: Readable, filePath: string): ActiveDownload {
   return {
     id: uuidv4(),
     status: 'Initializing',
@@ -24,6 +29,8 @@ function initItem(infos: DownloadInfos): DownloadingItem {
     size: infos.size,
     downloaded: 0,
     progress: infos.size ? 0 : undefined,
+    stream,
+    filePath,
   };
 }
 
@@ -57,7 +64,7 @@ function detectMediaType(fileName: string): MediaInfo {
 }
 
 export abstract class DownloadService {
-  private items: DownloadingItem[] = [];
+  private items: ActiveDownload[] = [];
 
   protected constructor(
     public readonly name: string,
@@ -71,6 +78,7 @@ export abstract class DownloadService {
 
   public abstract canDownload(url: string): boolean | Promise<boolean>;
   public abstract download(item: DownloadItem): Promise<DownloadingItem>;
+  public abstract getMediaInfo(url: string): Promise<DownloadInfos>;
 
   public list(): DownloadingItem[] {
     return this.items;
@@ -80,6 +88,23 @@ export abstract class DownloadService {
     const itemsCount = this.items.length;
     this.items = this.items.filter((item) => item.status !== 'Completed');
     this.logger.debug(`Removed ${itemsCount - this.items.length} completed items`);
+  }
+
+  public cancel(id: string): boolean {
+    const activeDownload = this.items.find((item) => item.id === id);
+    if (!activeDownload || activeDownload.status === 'Completed') {
+      return false;
+    }
+
+    activeDownload.stream.destroy();
+    this.items = this.items.filter((item) => item.id !== id);
+
+    if (fs.existsSync(activeDownload.filePath)) {
+      fs.unlinkSync(activeDownload.filePath);
+    }
+
+    this.logger.log(`Download of ${activeDownload.fileName} cancelled`);
+    return true;
   }
 
   private mediaLocalization(infos: DownloadInfos): string {
@@ -94,7 +119,11 @@ export abstract class DownloadService {
   }
 
   protected save(infos: DownloadInfos, stream: Readable): DownloadingItem {
-    const downloadingItem = initItem(infos);
+    const filePath = this.mediaLocalization(infos);
+    const writeStream = fs.createWriteStream(filePath, { flags: 'w' });
+
+    const downloadingItem = initItem(infos, stream, filePath);
+
     this.items.push(downloadingItem);
 
     stream.on('data', (chunk: Buffer) => {
@@ -104,19 +133,20 @@ export abstract class DownloadService {
         downloadingItem.progress = downloadingItem.downloaded / downloadingItem.size;
       }
     });
+
     stream.on('end', () => {
       if (downloadingItem.status !== 'Error') {
         downloadingItem.status = 'Completed';
         this.logger.log(`Download of ${infos.fileName} completed`);
       }
     });
+
     stream.on('error', (error) => {
       downloadingItem.status = 'Error';
       this.logger.error(`Error downloading ${infos.fileName}`, error);
     });
 
-    const filePath = this.mediaLocalization(infos);
-    stream.pipe(fs.createWriteStream(filePath, { flags: 'w' }));
+    stream.pipe(writeStream);
     const { value, unit } = infos.size ? humanFileSize(infos.size) : { value: NaN, unit: '' };
     this.logger.log(`Writing ${filePath} to disk (size: ${value}${unit})`);
 

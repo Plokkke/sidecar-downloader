@@ -4,7 +4,7 @@ import { InternalServerErrorException, Logger, UnauthorizedException } from '@ne
 import axios, { AxiosResponse } from 'axios';
 import { z } from 'zod';
 
-import { DownloadingItem, DownloadItem } from '@/schemas/DownloadItem';
+import { DownloadingItem, DownloadItem, DownloadInfos } from '@/schemas/DownloadItem';
 import { DownloadConfig, DownloadService } from '@/services/download';
 
 export const oneFichierConfigSchema = z.object({
@@ -70,6 +70,20 @@ export class OneFichierDownloadService extends DownloadService {
 
     this.logger.log(`Received access token for ${url}`);
     return response.data.url;
+  }
+
+  public async getMediaInfo(url: string): Promise<DownloadInfos> {
+    this.logger.log(`Getting media info for ${url} from 1fichier`);
+
+    const downloadUrl = await this.getAccessToken(url);
+
+    const response = await axios.head(downloadUrl);
+
+    this.logger.debug(`Headers: ${JSON.stringify(response.headers)}`);
+    return {
+      fileName: getFileName(response),
+      size: getContentLength(response),
+    };
   }
 
   public async download(item: DownloadItem): Promise<DownloadingItem> {

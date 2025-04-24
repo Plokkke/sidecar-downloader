@@ -5,6 +5,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { z } from 'zod';
 
 import { DownloadController } from '@/controllers/download';
+import { InfosController } from '@/controllers/infos';
 import { EnvironmentVariables } from '@/environment';
 import { HealthModule } from '@/modules/health/health.module';
 import { downloadServicesProvider } from '@/providers/downloadServices';
@@ -34,7 +35,7 @@ export function loadConfig(env: EnvironmentVariables): Config {
 export function configureAppModule(env: EnvironmentVariables): new () => NestModule {
   @Module({
     imports: [ConfigModule.forRoot({ load: [() => env] }), HealthModule],
-    controllers: [DownloadController],
+    controllers: [DownloadController, InfosController],
     providers: [
       downloadServicesProvider,
       {
