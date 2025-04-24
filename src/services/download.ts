@@ -16,19 +16,22 @@ export const downloadConfigSchema = z.object({
 
 export type DownloadConfig = z.infer<typeof downloadConfigSchema>;
 
-type ActiveDownload = DownloadingItem & {
+type ActiveDownload = {
+  infos: DownloadingItem;
   stream: Readable;
   filePath: string;
 };
 
 function initItem(infos: DownloadInfos, stream: Readable, filePath: string): ActiveDownload {
   return {
-    id: uuidv4(),
-    status: 'Initializing',
-    fileName: infos.fileName,
-    size: infos.size,
-    downloaded: 0,
-    progress: infos.size ? 0 : undefined,
+    infos: {
+      id: uuidv4(),
+      status: 'Initializing',
+      fileName: infos.fileName,
+      size: infos.size,
+      downloaded: 0,
+      progress: infos.size ? 0 : undefined,
+    },
     stream,
     filePath,
   };
@@ -81,29 +84,29 @@ export abstract class DownloadService {
   public abstract getMediaInfo(url: string): Promise<DownloadInfos>;
 
   public list(): DownloadingItem[] {
-    return this.items;
+    return this.items.map((item) => item.infos);
   }
 
   public cleanCompleted(): void {
     const itemsCount = this.items.length;
-    this.items = this.items.filter((item) => item.status !== 'Completed');
+    this.items = this.items.filter((item) => item.infos.status !== 'Completed');
     this.logger.debug(`Removed ${itemsCount - this.items.length} completed items`);
   }
 
   public cancel(id: string): boolean {
-    const activeDownload = this.items.find((item) => item.id === id);
-    if (!activeDownload || activeDownload.status === 'Completed') {
+    const activeDownload = this.items.find((item) => item.infos.id === id);
+    if (!activeDownload || activeDownload.infos.status === 'Completed') {
       return false;
     }
 
     activeDownload.stream.destroy();
-    this.items = this.items.filter((item) => item.id !== id);
+    this.items = this.items.filter((item) => item.infos.id !== id);
 
     if (fs.existsSync(activeDownload.filePath)) {
       fs.unlinkSync(activeDownload.filePath);
     }
 
-    this.logger.log(`Download of ${activeDownload.fileName} cancelled`);
+    this.logger.log(`Download of ${activeDownload.infos.fileName} cancelled`);
     return true;
   }
 
@@ -127,22 +130,22 @@ export abstract class DownloadService {
     this.items.push(downloadingItem);
 
     stream.on('data', (chunk: Buffer) => {
-      downloadingItem.status = 'Downloading';
-      downloadingItem.downloaded += chunk.length;
-      if (downloadingItem.size) {
-        downloadingItem.progress = downloadingItem.downloaded / downloadingItem.size;
+      downloadingItem.infos.status = 'Downloading';
+      downloadingItem.infos.downloaded += chunk.length;
+      if (downloadingItem.infos.size) {
+        downloadingItem.infos.progress = downloadingItem.infos.downloaded / downloadingItem.infos.size;
       }
     });
 
     stream.on('end', () => {
-      if (downloadingItem.status !== 'Error') {
-        downloadingItem.status = 'Completed';
+      if (downloadingItem.infos.status !== 'Error') {
+        downloadingItem.infos.status = 'Completed';
         this.logger.log(`Download of ${infos.fileName} completed`);
       }
     });
 
     stream.on('error', (error) => {
-      downloadingItem.status = 'Error';
+      downloadingItem.infos.status = 'Error';
       this.logger.error(`Error downloading ${infos.fileName}`, error);
     });
 
@@ -150,6 +153,6 @@ export abstract class DownloadService {
     const { value, unit } = infos.size ? humanFileSize(infos.size) : { value: NaN, unit: '' };
     this.logger.log(`Writing ${filePath} to disk (size: ${value}${unit})`);
 
-    return downloadingItem;
+    return downloadingItem.infos;
   }
 }
