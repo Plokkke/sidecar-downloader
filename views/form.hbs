@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Téléchargement - Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 30px;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaaaaa;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="url"] {
+            width: 100%;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s ease;
+        }
+
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        input[type="url"]::placeholder {
+            color: #666666;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            border: none;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #00bfef 0%, #0088bb 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .success-message {
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #00ff00;
+        }
+
+        .actions {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .actions a {
+            color: #00d4ff;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .actions a:hover {
+            color: #00bfef;
+            text-decoration: underline;
+        }
+
+        .logout-btn {
+            width: auto;
+            padding: 10px 20px;
+            font-size: 14px;
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.5);
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 0, 0, 0.3);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .info {
+            background: rgba(0, 212, 255, 0.1);
+            border-left: 4px solid #00d4ff;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+
+        .info p {
+            color: #aaaaaa;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ajouter un téléchargement</h1>
+
+        {{#if success}}
+        <div class="success-message">
+            ✓ Téléchargement ajouté avec succès !
+        </div>
+        {{/if}}
+
+        <div class="info">
+            <p>✓ Session authentifiée</p>
+            <p>Collez l'URL de votre fichier ci-dessous pour démarrer le téléchargement.</p>
+        </div>
+
+        <form method="POST" action="/submit">
+            <div class="form-group">
+                <label for="url">URL du fichier</label>
+                <input
+                    type="url"
+                    id="url"
+                    name="url"
+                    placeholder="https://1fichier.com/..."
+                    required
+                    autofocus
+                >
+            </div>
+
+            <button type="submit">Télécharger</button>
+        </form>
+
+        <div class="actions">
+            <a href="/downloads">Voir les téléchargements</a>
+            <form method="POST" action="/auth/logout" style="display: inline;">
+                <button type="submit" class="logout-btn">Déconnexion</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Check for success parameter in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+            // Clear the URL parameter without reloading
+            window.history.replaceState({}, document.title, '/form');
+        }
+    </script>
+</body>
+</html>

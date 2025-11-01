@@ -5,6 +5,7 @@
     "baseUrl": "./",
     "declaration": true,
     "emitDecoratorMetadata": true,
+    "esModuleInterop": false,
     "experimentalDecorators": true,
     "forceConsistentCasingInFileNames": false,
     "incremental": true,

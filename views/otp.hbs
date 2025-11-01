@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autorisation - Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            max-width: 500px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .otp-display {
+            margin: 30px 0;
+            padding: 30px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 2px solid #00d4ff;
+            border-radius: 12px;
+        }
+
+        .otp-code {
+            font-size: 56px;
+            letter-spacing: 12px;
+            color: #00d4ff;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        p {
+            margin: 20px 0;
+            font-size: 16px;
+            color: #aaaaaa;
+            line-height: 1.6;
+        }
+
+        .status-indicator {
+            margin-top: 30px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .spinner {
+            display: inline-block;
+            font-size: 24px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 165, 0, 0.1);
+            border-left: 4px solid #ffa500;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .instructions p {
+            color: #ffcc80;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code d'autorisation</h1>
+
+        <div class="otp-display">
+            <div class="otp-code">{{otp}}</div>
+        </div>
+
+        <div class="instructions">
+            <p><strong>Instructions:</strong></p>
+            <p>1. Copiez ce code à 6 chiffres</p>
+            <p>2. Validez-le dans votre application pour activer l'accès</p>
+            <p>3. Cette page se mettra à jour automatiquement</p>
+        </div>
+
+        <div class="status-indicator">
+            <span class="spinner">⏳</span>
+            <span>En attente de validation...</span>
+        </div>
+    </div>
+
+    <script>
+        // Polling toutes les 2 secondes pour vérifier si l'OTP a été validé
+        const checkStatus = async () => {
+            try {
+                const response = await fetch('/auth/status');
+                const data = await response.json();
+                if (data.validated) {
+                    window.location.href = '/form';
+                }
+            } catch (error) {
+                console.error('Erreur lors de la vérification du statut:', error);
+            }
+        };
+
+        // Lancer le polling
+        setInterval(checkStatus, 2000);
+    </script>
+</body>
+</html>

@@ -12,6 +12,9 @@ export const CONFIG: EnvironmentVariables = {
     apiKey: '13e4872b-12af-4707-85d6-8b7dbcdc6878',
     logLevel: 'info',
   },
+  session: {
+    secret: 'change-this-in-production-minimum-32-characters',
+  },
   oneFichier: {
     host: '1fichier.com',
     apiKey: 'uuid-1234567098a',

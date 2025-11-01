@@ -12,6 +12,7 @@ export const environmentVariablesSchema = z
     LOG_LEVEL: z.string().optional(),
     PORT: z.coerce.number().optional(),
     API_KEY: z.string(),
+    SESSION_SECRET: z.string().min(32).optional(),
     ONE_FICHIER_HOST: z.string().optional(),
     ONE_FICHIER_API_KEY: z.string().optional(),
     DOWNLOAD_MOVIES_PATH: z.string(),
@@ -36,6 +37,9 @@ export const environmentVariablesSchema = z
       port: env.PORT ?? 3000,
       apiKey: env.API_KEY,
       logLevel: env.LOG_LEVEL,
+    },
+    session: env.SESSION_SECRET && {
+      secret: env.SESSION_SECRET,
     },
     oneFichier: env.ONE_FICHIER_HOST && {
       host: env.ONE_FICHIER_HOST,
