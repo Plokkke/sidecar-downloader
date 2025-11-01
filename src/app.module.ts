@@ -9,6 +9,7 @@ import { InfosController } from '@/controllers/infos';
 import { EnvironmentVariables } from '@/environment';
 import { HealthModule } from '@/modules/health/health.module';
 import { downloadServicesProvider } from '@/providers/downloadServices';
+import { ArchiveExtractorService } from '@/services/archive-extractor';
 import { downloadConfigSchema } from '@/services/download';
 import { oneFichierConfigSchema } from '@/services/oneFichier';
 
@@ -37,6 +38,7 @@ export function configureAppModule(env: EnvironmentVariables): new () => NestMod
     imports: [ConfigModule.forRoot({ load: [() => env] }), HealthModule],
     controllers: [DownloadController, InfosController],
     providers: [
+      ArchiveExtractorService,
       downloadServicesProvider,
       {
         provide: APP_PIPE,

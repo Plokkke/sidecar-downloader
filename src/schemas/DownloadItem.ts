@@ -12,7 +12,7 @@ const downloadInfoSchema = z.object({
 
 const downloadingItemSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(['Initializing', 'Completed', 'Downloading', 'Error']),
+  status: z.enum(['Initializing', 'Completed', 'Downloading', 'Error', 'Extracting']),
   fileName: z.string(),
   size: z.number().nullable(),
   downloaded: z.number(),

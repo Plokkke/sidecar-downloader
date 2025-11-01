@@ -5,6 +5,7 @@ import axios, { AxiosResponse } from 'axios';
 import { z } from 'zod';
 
 import { DownloadingItem, DownloadItem, DownloadInfos } from '@/schemas/DownloadItem';
+import { ArchiveExtractorService } from '@/services/archive-extractor';
 import { DownloadConfig, DownloadService } from '@/services/download';
 
 export const oneFichierConfigSchema = z.object({
@@ -34,8 +35,9 @@ export class OneFichierDownloadService extends DownloadService {
   constructor(
     downloadConfig: DownloadConfig,
     private readonly oneFichierConfig: OneFichierConfig,
+    archiveExtractor?: ArchiveExtractorService,
   ) {
-    super('1Fichier', downloadConfig);
+    super('1Fichier', downloadConfig, archiveExtractor);
   }
 
   public canDownload(url: string): boolean {

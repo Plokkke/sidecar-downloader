@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 
 import { DownloadInfos, DownloadingItem, DownloadItem } from '@/schemas/DownloadItem';
+import { ArchiveExtractorService } from '@/services/archive-extractor';
 import { humanFileSize } from '@/utils';
 
 export const downloadConfigSchema = z.object({
@@ -72,6 +73,7 @@ export abstract class DownloadService {
   protected constructor(
     public readonly name: string,
     private readonly config: DownloadConfig,
+    protected archiveExtractor?: ArchiveExtractorService,
   ) {
     fs.mkdirSync(this.config.moviesPath, { recursive: true });
     fs.mkdirSync(this.config.showsPath, { recursive: true });
@@ -137,8 +139,14 @@ export abstract class DownloadService {
       }
     });
 
-    stream.on('end', () => {
+    stream.on('end', async () => {
       if (downloadingItem.infos.status !== 'Error') {
+        if (this.archiveExtractor && this.archiveExtractor.isArchive(filePath)) {
+          downloadingItem.infos.status = 'Extracting';
+          this.logger.log(`Extracting archive: ${infos.fileName}`);
+          await this.archiveExtractor.extract(filePath, infos.fileName, this.config.showsPath).catch(() => null);
+        }
+
         downloadingItem.infos.status = 'Completed';
         this.logger.log(`Download of ${infos.fileName} completed`);
       }
