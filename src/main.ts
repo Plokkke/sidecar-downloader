@@ -21,7 +21,7 @@ import { logger } from '@/services/logger';
 
   // Configure Handlebars for SSR
   app.setViewEngine('hbs');
-  app.set('views', join(__dirname, '..', 'views'));
+  app.set('views', join(__dirname, 'views'));
 
   // Configure sessions with cookie storage
   const sessionSecret = env.session ? env.session.secret : 'change-this-in-production-minimum-32-characters';
@@ -40,7 +40,7 @@ import { logger } from '@/services/logger';
   );
 
   // Serve static files
-  app.useStaticAssets(join(__dirname, '..', 'public'));
+  app.useStaticAssets(join(__dirname, 'public'));
 
   app.useGlobalInterceptors(new LoggingInterceptor());
 
