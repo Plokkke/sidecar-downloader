@@ -10,6 +10,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY src/ ./src/
+COPY views/ ./views/
+COPY public/ ./public/
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 RUN npm run build
 
