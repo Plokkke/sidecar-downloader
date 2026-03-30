@@ -13,8 +13,8 @@ import {
 
 import { MatchingHeaders } from '@/decorators/MatchingHeaders';
 import { MatchingHeadersGuard } from '@/guards/MatchingHeaderGuard';
-import { DOWNLOAD_SERVICES_TOKEN } from '@/providers/downloadServices';
-import { DownloadingItem, DownloadItem } from '@/schemas/DownloadItem';
+import { downloadServicesProvider } from '@/providers/downloadServices';
+import { DownloadingInfos, DownloadItem } from '@/schemas/DownloadItem';
 import { DownloadService } from '@/services/download';
 
 @Controller('/downloads')
@@ -22,7 +22,7 @@ export class DownloadController {
   private readonly logger = new Logger(DownloadController.name);
 
   constructor(
-    @Inject(DOWNLOAD_SERVICES_TOKEN)
+    @Inject(downloadServicesProvider.provide)
     private readonly downloadServices: DownloadService[],
   ) {
     if (!downloadServices.length) {
@@ -34,7 +34,7 @@ export class DownloadController {
   @Post('/')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async createDownload(@Body() item: DownloadItem): Promise<DownloadingItem> {
+  async createDownload(@Body() item: DownloadItem): Promise<DownloadingInfos> {
     const downloadService = this.downloadServices.find((service) => service.canDownload(item.url));
 
     if (!downloadService) {
@@ -48,26 +48,28 @@ export class DownloadController {
   @Get('/')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async getDownloads(): Promise<DownloadingItem[]> {
-    const items = this.downloadServices.flatMap((service) => service.list());
-    for (const service of this.downloadServices) {
-      service.cleanCompleted();
-    }
-    this.logger.debug(`Returning ${items.length} items`);
-    return items;
+  async getDownloads(): Promise<DownloadingInfos[]> {
+    return this.downloadServices.flatMap((service) => service.list());
+  }
+
+  @Get('/plugins')
+  @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
+  @UseGuards(MatchingHeadersGuard)
+  getPlugins(): { name: string }[] {
+    return this.downloadServices.map((service) => ({ name: service.name }));
   }
 
   @Get('/:id')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async getDownload(@Param('id') id: string): Promise<DownloadingItem> {
-    const item = this.downloadServices.flatMap((service) => service.list()).find((item) => item.id === id);
-
-    if (!item) {
-      throw new NotFoundException();
+  async getDownload(@Param('id') id: string): Promise<DownloadingInfos> {
+    for (const service of this.downloadServices) {
+      const item = service.get(id);
+      if (item) {
+        return item;
+      }
     }
-
-    return item;
+    throw new NotFoundException();
   }
 
   @Delete('/:id')

@@ -4,13 +4,13 @@ import { Readable } from 'stream';
 
 import { Logger } from '@nestjs/common';
 
-import { DownloadInfos, DownloadingItem } from '@/schemas/DownloadItem';
+import { DownloadInfos, DownloadingInfos } from '@/schemas/DownloadItem';
 import { DownloadConfig, DownloadService } from '@/services/download';
 
 function inputs(
   kind: 'movie' | 'show',
   size: number | null,
-): { infos: DownloadInfos; rStream: Readable; expected: DownloadingItem } {
+): { infos: DownloadInfos; rStream: Readable; expected: DownloadingInfos } {
   const rStream = new PassThrough();
   return {
     infos: {
@@ -91,11 +91,11 @@ class TestImpl extends DownloadService {
     return true;
   }
 
-  async download(): Promise<DownloadingItem> {
-    return undefined as unknown as DownloadingItem;
+  async download(): Promise<DownloadingInfos> {
+    return undefined as unknown as DownloadingInfos;
   }
 
-  public save(infos: DownloadInfos, stream: Readable): DownloadingItem {
+  public save(infos: DownloadInfos, stream: Readable): DownloadingInfos {
     return super.save(infos, stream);
   }
 

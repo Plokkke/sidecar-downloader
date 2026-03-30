@@ -4,14 +4,14 @@ import { APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { z } from 'zod';
 
-import { AuthController } from '@/controllers/auth';
 import { DownloadController } from '@/controllers/download';
 import { InfosController } from '@/controllers/infos';
 import { EnvironmentVariables } from '@/environment';
+import { DownloadsGateway } from '@/gateways/downloads.gateway';
 import { HealthModule } from '@/modules/health/health.module';
 import { downloadServicesProvider } from '@/providers/downloadServices';
 import { ArchiveExtractorService } from '@/services/archive-extractor';
-import { downloadConfigSchema } from '@/services/download';
+import { DownloadEventEmitter } from '@/services/download-events';
 import { oneFichierConfigSchema } from '@/services/oneFichier';
 
 export const configSchema = z.object({
@@ -20,27 +20,22 @@ export const configSchema = z.object({
     apiKey: z.string().uuid(),
     logLevel: z.enum(['error', 'warn', 'info', 'verbose', 'debug', 'silly']).optional().default('info'),
   }),
-  download: downloadConfigSchema,
+  downloadsPath: z.string(),
+  maxConcurrentDownloads: z.number().int().min(1).default(3),
   oneFichier: oneFichierConfigSchema.optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
 
-export function loadConfig(env: EnvironmentVariables): Config {
-  return configSchema.parse({
-    server: env.server,
-    download: env.download,
-    oneFichier: env.oneFichier,
-  });
-}
-
 export function configureAppModule(env: EnvironmentVariables): new () => NestModule {
   @Module({
     imports: [ConfigModule.forRoot({ load: [() => env] }), HealthModule],
-    controllers: [AuthController, DownloadController, InfosController],
+    controllers: [DownloadController, InfosController],
     providers: [
       ArchiveExtractorService,
+      DownloadEventEmitter,
       downloadServicesProvider,
+      DownloadsGateway,
       {
         provide: APP_PIPE,
         useClass: ZodValidationPipe,

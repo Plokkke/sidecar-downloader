@@ -4,7 +4,7 @@ import { logger } from '@/services/logger';
 
 export const oneFichierEnvSchema = z.object({
   ONE_FICHIER_HOST: z.string(),
-  ONE_FICHIER_API_KEY: z.string(),
+  ONE_FICHIER_API_KEY: z.string().optional(),
 });
 
 export const environmentVariablesSchema = z
@@ -12,11 +12,10 @@ export const environmentVariablesSchema = z
     LOG_LEVEL: z.string().optional(),
     PORT: z.coerce.number().optional(),
     API_KEY: z.string(),
-    SESSION_SECRET: z.string().min(32).optional(),
     ONE_FICHIER_HOST: z.string().optional(),
     ONE_FICHIER_API_KEY: z.string().optional(),
-    DOWNLOAD_MOVIES_PATH: z.string(),
-    DOWNLOAD_SHOWS_PATH: z.string(),
+    DOWNLOADS_PATH: z.string(),
+    MAX_CONCURRENT_DOWNLOADS: z.coerce.number().int().min(1).optional(),
   })
   .superRefine((env, ctx) => {
     if (env.ONE_FICHIER_HOST) {
@@ -38,17 +37,12 @@ export const environmentVariablesSchema = z
       apiKey: env.API_KEY,
       logLevel: env.LOG_LEVEL,
     },
-    session: env.SESSION_SECRET && {
-      secret: env.SESSION_SECRET,
-    },
     oneFichier: env.ONE_FICHIER_HOST && {
       host: env.ONE_FICHIER_HOST,
-      apiKey: env.ONE_FICHIER_API_KEY!,
+      apiKey: env.ONE_FICHIER_API_KEY,
     },
-    download: {
-      moviesPath: env.DOWNLOAD_MOVIES_PATH,
-      showsPath: env.DOWNLOAD_SHOWS_PATH,
-    },
+    downloadsPath: env.DOWNLOADS_PATH,
+    maxConcurrentDownloads: env.MAX_CONCURRENT_DOWNLOADS ?? 3,
   }));
 
 export type EnvironmentVariables = z.infer<typeof environmentVariablesSchema>;

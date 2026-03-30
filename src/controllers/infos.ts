@@ -2,7 +2,7 @@ import { Controller, Get, Inject, Logger, Query, UseGuards } from '@nestjs/commo
 
 import { MatchingHeaders } from '@/decorators/MatchingHeaders';
 import { MatchingHeadersGuard } from '@/guards/MatchingHeaderGuard';
-import { DOWNLOAD_SERVICES_TOKEN } from '@/providers/downloadServices';
+import { downloadServicesProvider } from '@/providers/downloadServices';
 import { DownloadInfos } from '@/schemas/DownloadItem';
 import { DownloadService } from '@/services/download';
 
@@ -11,7 +11,7 @@ export class InfosController {
   private readonly logger = new Logger(InfosController.name);
 
   constructor(
-    @Inject(DOWNLOAD_SERVICES_TOKEN)
+    @Inject(downloadServicesProvider.provide)
     private readonly downloadServices: DownloadService[],
   ) {
     if (!downloadServices.length) {
