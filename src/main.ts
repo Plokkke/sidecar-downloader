@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { WsAdapter } from '@nestjs/platform-ws';
 import { WinstonModule } from 'nest-winston';
 
 import { configureAppModule } from '@/app.module';
@@ -15,6 +16,7 @@ import { logger } from '@/services/logger';
     }),
   });
 
+  app.useWebSocketAdapter(new WsAdapter(app));
   app.useGlobalInterceptors(new LoggingInterceptor());
 
   await app.listen(env.server.port);

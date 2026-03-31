@@ -8,6 +8,7 @@ export enum DownloadEventType {
   Progress = 'download.progress',
   Completed = 'download.completed',
   Failed = 'download.failed',
+  Removed = 'download.removed',
 }
 
 export type DownloadProgressEvent = {
@@ -27,10 +28,13 @@ export type DownloadCompletedEvent = Pick<
 
 export type DownloadFailedEvent = Pick<DownloadingInfos, 'id' | 'fileName' | 'error' | 'source'>;
 
+export type DownloadRemovedEvent = { id: string };
+
 interface DownloadEventMap {
   [DownloadEventType.Progress]: DownloadProgressEvent;
   [DownloadEventType.Completed]: DownloadCompletedEvent;
   [DownloadEventType.Failed]: DownloadFailedEvent;
+  [DownloadEventType.Removed]: DownloadRemovedEvent;
 }
 
 @Injectable()

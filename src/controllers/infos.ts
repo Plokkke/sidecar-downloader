@@ -1,38 +1,27 @@
-import { Controller, Get, Inject, Logger, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Logger, NotFoundException, Query, UseGuards } from '@nestjs/common';
 
 import { MatchingHeaders } from '@/decorators/MatchingHeaders';
 import { MatchingHeadersGuard } from '@/guards/MatchingHeaderGuard';
-import { downloadServicesProvider } from '@/providers/downloadServices';
-import { DownloadInfos } from '@/schemas/DownloadItem';
-import { DownloadService } from '@/services/download';
+import { FileInfo } from '@/plugins/host-plugin';
+import { PluginRegistry } from '@/plugins/plugin-registry';
 
 @Controller('/infos')
 export class InfosController {
   private readonly logger = new Logger(InfosController.name);
 
-  constructor(
-    @Inject(downloadServicesProvider.provide)
-    private readonly downloadServices: DownloadService[],
-  ) {
-    if (!downloadServices.length) {
-      this.logger.error('No download services configured');
-      throw new Error('No download services configured');
-    }
-  }
+  constructor(private readonly registry: PluginRegistry) {}
 
   @Get('/')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async getMediaInfo(@Query('url') url: string): Promise<DownloadInfos> {
-    this.logger.log(`Getting media info for ${url}`);
+  async getMediaInfo(@Query('url') url: string): Promise<FileInfo> {
+    this.logger.log(`Getting file info for ${url}`);
 
-    const downloadService = this.downloadServices.find((service) => service.canDownload(url));
-
-    if (!downloadService) {
-      this.logger.log(`No service found for ${url}`);
-      throw new Error('No service found for this URL');
+    const plugin = this.registry.findHostFor(url);
+    if (!plugin) {
+      throw new NotFoundException('No plugin found for this URL');
     }
 
-    return await downloadService.getMediaInfo(url);
+    return plugin.getFileInfo(url);
   }
 }

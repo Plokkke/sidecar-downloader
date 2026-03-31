@@ -1,16 +1,25 @@
-import { Logger, OnModuleInit } from '@nestjs/common';
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { Server } from 'ws';
 
 import { DownloadEventEmitter, DownloadEventType, DownloadProgressEvent } from '@/services/download-events';
 
 const PROGRESS_THROTTLE_MS = 500;
+const VALID_TOPICS = new Set<string>(Object.values(DownloadEventType));
 
-@WebSocketGateway({ cors: true })
-export class DownloadsGateway implements OnModuleInit {
+type WsClient = import('ws').WebSocket;
+
+interface ClientMessage {
+  type: 'subscribe' | 'unsubscribe';
+  topics: string[];
+}
+
+@WebSocketGateway()
+export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DownloadsGateway.name);
-  private progressThrottleTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly subscriptions = new Map<WsClient, Set<string>>();
   private pendingProgress = new Map<string, DownloadProgressEvent>();
+  private progressTimer: ReturnType<typeof setInterval> | null = null;
 
   @WebSocketServer()
   server!: Server;
@@ -18,56 +27,88 @@ export class DownloadsGateway implements OnModuleInit {
   constructor(private readonly events: DownloadEventEmitter) {}
 
   onModuleInit(): void {
+    this.server.on('connection', (client: WsClient) => {
+      this.subscriptions.set(client, new Set());
+
+      client.on('message', (raw: Buffer | string) => {
+        try {
+          const msg: ClientMessage = JSON.parse(raw.toString());
+          this.handleMessage(client, msg);
+        } catch {
+          this.logger.warn('Invalid WebSocket message received');
+        }
+      });
+
+      client.on('close', () => {
+        this.subscriptions.delete(client);
+      });
+    });
+
     this.events.on(DownloadEventType.Progress, (payload) => {
       this.pendingProgress.set(payload.id, payload);
     });
 
     this.events.on(DownloadEventType.Completed, (payload) => {
-      this.server.to(DownloadEventType.Completed).emit(DownloadEventType.Completed, payload);
+      this.pendingProgress.delete(payload.id);
+      this.broadcast(DownloadEventType.Completed, payload);
     });
 
     this.events.on(DownloadEventType.Failed, (payload) => {
-      this.server.to(DownloadEventType.Failed).emit(DownloadEventType.Failed, payload);
+      this.pendingProgress.delete(payload.id);
+      this.broadcast(DownloadEventType.Failed, payload);
     });
 
-    this.progressThrottleTimer = setInterval(() => {
+    this.events.on(DownloadEventType.Removed, (payload) => {
+      this.pendingProgress.delete(payload.id);
+      this.broadcast(DownloadEventType.Removed, payload);
+    });
+
+    this.progressTimer = setInterval(() => {
       if (this.pendingProgress.size === 0) {
         return;
       }
-
       for (const [, progress] of this.pendingProgress) {
-        this.server.to(DownloadEventType.Progress).emit(DownloadEventType.Progress, progress);
+        this.broadcast(DownloadEventType.Progress, progress);
       }
       this.pendingProgress.clear();
     }, PROGRESS_THROTTLE_MS);
 
-    this.logger.log('Downloads WebSocket gateway initialized');
+    this.logger.log('WebSocket gateway initialized');
   }
 
   onModuleDestroy(): void {
-    if (this.progressThrottleTimer) {
-      clearInterval(this.progressThrottleTimer);
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
     }
   }
 
-  @SubscribeMessage('subscribe')
-  handleSubscribe(@ConnectedSocket() client: Socket, @MessageBody() topics: string[]): void {
-    const validTopics = Object.values(DownloadEventType) as string[];
-    const accepted = topics.filter((t) => validTopics.includes(t));
-
-    for (const topic of accepted) {
-      client.join(topic);
+  private handleMessage(client: WsClient, msg: ClientMessage): void {
+    const topics = this.subscriptions.get(client);
+    if (!topics) {
+      return;
     }
 
-    this.logger.debug(`Client ${client.id} subscribed to: ${accepted.join(', ')}`);
+    const validRequested = (msg.topics ?? []).filter((t) => VALID_TOPICS.has(t));
+
+    if (msg.type === 'subscribe') {
+      for (const topic of validRequested) {
+        topics.add(topic);
+      }
+      this.logger.debug(`Client subscribed to: ${validRequested.join(', ')}`);
+    } else if (msg.type === 'unsubscribe') {
+      for (const topic of validRequested) {
+        topics.delete(topic);
+      }
+      this.logger.debug(`Client unsubscribed from: ${validRequested.join(', ')}`);
+    }
   }
 
-  @SubscribeMessage('unsubscribe')
-  handleUnsubscribe(@ConnectedSocket() client: Socket, @MessageBody() topics: string[]): void {
-    for (const topic of topics) {
-      client.leave(topic);
+  private broadcast(event: string, payload: unknown): void {
+    const message = JSON.stringify({ event, data: payload });
+    for (const [client, topics] of this.subscriptions) {
+      if (topics.has(event) && client.readyState === client.OPEN) {
+        client.send(message);
+      }
     }
-
-    this.logger.debug(`Client ${client.id} unsubscribed from: ${topics.join(', ')}`);
   }
 }

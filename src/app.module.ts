@@ -9,10 +9,9 @@ import { InfosController } from '@/controllers/infos';
 import { EnvironmentVariables } from '@/environment';
 import { DownloadsGateway } from '@/gateways/downloads.gateway';
 import { HealthModule } from '@/modules/health/health.module';
-import { downloadServicesProvider } from '@/providers/downloadServices';
-import { ArchiveExtractorService } from '@/services/archive-extractor';
+import { downloadEngineProvider } from '@/providers/download-engine';
+import { pluginRegistryProvider } from '@/providers/plugin-registry';
 import { DownloadEventEmitter } from '@/services/download-events';
-import { oneFichierConfigSchema } from '@/services/oneFichier';
 
 export const configSchema = z.object({
   server: z.object({
@@ -22,7 +21,8 @@ export const configSchema = z.object({
   }),
   downloadsPath: z.string(),
   maxConcurrentDownloads: z.number().int().min(1).default(3),
-  oneFichier: oneFichierConfigSchema.optional(),
+  hostPlugins: z.array(z.string()).min(1),
+  archivePlugins: z.array(z.string()).default([]),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -32,9 +32,9 @@ export function configureAppModule(env: EnvironmentVariables): new () => NestMod
     imports: [ConfigModule.forRoot({ load: [() => env] }), HealthModule],
     controllers: [DownloadController, InfosController],
     providers: [
-      ArchiveExtractorService,
       DownloadEventEmitter,
-      downloadServicesProvider,
+      pluginRegistryProvider,
+      downloadEngineProvider,
       DownloadsGateway,
       {
         provide: APP_PIPE,

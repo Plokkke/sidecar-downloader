@@ -2,34 +2,22 @@ import { z } from 'zod';
 
 import { logger } from '@/services/logger';
 
-export const oneFichierEnvSchema = z.object({
-  ONE_FICHIER_HOST: z.string(),
-  ONE_FICHIER_API_KEY: z.string().optional(),
-});
+const commaSeparatedList = z.string().transform((s) =>
+  s
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean),
+);
 
 export const environmentVariablesSchema = z
   .object({
     LOG_LEVEL: z.string().optional(),
     PORT: z.coerce.number().optional(),
     API_KEY: z.string(),
-    ONE_FICHIER_HOST: z.string().optional(),
-    ONE_FICHIER_API_KEY: z.string().optional(),
     DOWNLOADS_PATH: z.string(),
     MAX_CONCURRENT_DOWNLOADS: z.coerce.number().int().min(1).optional(),
-  })
-  .superRefine((env, ctx) => {
-    if (env.ONE_FICHIER_HOST) {
-      const result = oneFichierEnvSchema.safeParse(env);
-      if (!result.success) {
-        result.error.errors.forEach((error) => {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: error.message,
-            path: error.path,
-          });
-        });
-      }
-    }
+    HOST_PLUGINS: commaSeparatedList,
+    ARCHIVE_PLUGINS: commaSeparatedList.optional(),
   })
   .transform((env) => ({
     server: {
@@ -37,12 +25,10 @@ export const environmentVariablesSchema = z
       apiKey: env.API_KEY,
       logLevel: env.LOG_LEVEL,
     },
-    oneFichier: env.ONE_FICHIER_HOST && {
-      host: env.ONE_FICHIER_HOST,
-      apiKey: env.ONE_FICHIER_API_KEY,
-    },
     downloadsPath: env.DOWNLOADS_PATH,
     maxConcurrentDownloads: env.MAX_CONCURRENT_DOWNLOADS ?? 3,
+    hostPlugins: env.HOST_PLUGINS,
+    archivePlugins: env.ARCHIVE_PLUGINS ?? [],
   }));
 
 export type EnvironmentVariables = z.infer<typeof environmentVariablesSchema>;

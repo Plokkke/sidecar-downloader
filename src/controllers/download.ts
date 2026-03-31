@@ -1,95 +1,69 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Inject,
-  Logger,
-  NotFoundException,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Logger, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
 
 import { MatchingHeaders } from '@/decorators/MatchingHeaders';
 import { MatchingHeadersGuard } from '@/guards/MatchingHeaderGuard';
-import { downloadServicesProvider } from '@/providers/downloadServices';
+import { PluginRegistry } from '@/plugins/plugin-registry';
 import { DownloadingInfos, DownloadItem } from '@/schemas/DownloadItem';
-import { DownloadService } from '@/services/download';
+import { DownloadEngine } from '@/services/download-engine';
 
 @Controller('/downloads')
 export class DownloadController {
   private readonly logger = new Logger(DownloadController.name);
 
   constructor(
-    @Inject(downloadServicesProvider.provide)
-    private readonly downloadServices: DownloadService[],
-  ) {
-    if (!downloadServices.length) {
-      this.logger.error('No download services configured');
-      throw new Error('No download services configured');
-    }
-  }
+    private readonly engine: DownloadEngine,
+    private readonly registry: PluginRegistry,
+  ) {}
 
   @Post('/')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
   async createDownload(@Body() item: DownloadItem): Promise<DownloadingInfos> {
-    const downloadService = this.downloadServices.find((service) => service.canDownload(item.url));
-
-    if (!downloadService) {
-      this.logger.log(`No service found for ${item.url}`);
-      throw new Error('No service found for this URL');
-    }
-
-    return await downloadService.download(item);
+    return this.engine.download(item);
   }
 
   @Get('/')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async getDownloads(): Promise<DownloadingInfos[]> {
-    return this.downloadServices.flatMap((service) => service.list());
+  getDownloads(): DownloadingInfos[] {
+    return this.engine.list();
   }
 
   @Get('/plugins')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  getPlugins(): { name: string }[] {
-    return this.downloadServices.map((service) => ({ name: service.name }));
+  getPlugins(): { hosts: { name: string; urlPattern: string }[]; archives: string[] } {
+    return {
+      hosts: this.registry.hosts.map((h) => ({ name: h.name, urlPattern: h.urlPattern })),
+      archives: this.registry.archives.map((a) => a.name),
+    };
+  }
+
+  @Delete('/completed')
+  @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
+  @UseGuards(MatchingHeadersGuard)
+  clearCompleted(): { cleared: number } {
+    return { cleared: this.engine.clearCompleted() };
   }
 
   @Get('/:id')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async getDownload(@Param('id') id: string): Promise<DownloadingInfos> {
-    for (const service of this.downloadServices) {
-      const item = service.get(id);
-      if (item) {
-        return item;
-      }
+  getDownload(@Param('id') id: string): DownloadingInfos {
+    const item = this.engine.get(id);
+    if (!item) {
+      throw new NotFoundException();
     }
-    throw new NotFoundException();
+    return item;
   }
 
   @Delete('/:id')
   @MatchingHeaders([{ headerKey: 'x-api-key', configPath: 'server.apiKey' }])
   @UseGuards(MatchingHeadersGuard)
-  async cancelDownload(@Param('id') id: string): Promise<{ success: boolean }> {
-    this.logger.log(`Cancelling download with id ${id}`);
-
-    let cancelled = false;
-    for (const service of this.downloadServices) {
-      if (service.cancel(id)) {
-        cancelled = true;
-        break;
-      }
-    }
-
-    if (!cancelled) {
+  cancelDownload(@Param('id') id: string): { success: boolean } {
+    if (!this.engine.cancel(id)) {
       throw new NotFoundException(`Download with id ${id} not found or already completed`);
     }
-
     return { success: true };
   }
 }
