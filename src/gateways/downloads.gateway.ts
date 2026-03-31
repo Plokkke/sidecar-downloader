@@ -2,6 +2,7 @@ import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'ws';
 
+import { DownloadEngine } from '@/services/download-engine';
 import { DownloadEventEmitter, DownloadEventType, DownloadProgressEvent } from '@/services/download-events';
 
 const PROGRESS_THROTTLE_MS = 500;
@@ -9,10 +10,24 @@ const VALID_TOPICS = new Set<string>(Object.values(DownloadEventType));
 
 type WsClient = import('ws').WebSocket;
 
-interface ClientMessage {
-  type: 'subscribe' | 'unsubscribe';
-  topics: string[];
+enum ClientMessageType {
+  Subscribe = 'subscribe',
+  Unsubscribe = 'unsubscribe',
+  Download = 'download',
+  Cancel = 'cancel',
+  Remove = 'remove',
+  Clear = 'clear',
+  List = 'list',
 }
+
+type ClientMessage =
+  | { type: ClientMessageType.Subscribe; topics: string[] }
+  | { type: ClientMessageType.Unsubscribe; topics: string[] }
+  | { type: ClientMessageType.Download; url: string }
+  | { type: ClientMessageType.Cancel; id: string }
+  | { type: ClientMessageType.Remove; id: string }
+  | { type: ClientMessageType.Clear }
+  | { type: ClientMessageType.List };
 
 @WebSocketGateway()
 export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
@@ -24,7 +39,10 @@ export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
   @WebSocketServer()
   server!: Server;
 
-  constructor(private readonly events: DownloadEventEmitter) {}
+  constructor(
+    private readonly events: DownloadEventEmitter,
+    private readonly engine: DownloadEngine,
+  ) {}
 
   onModuleInit(): void {
     this.server.on('connection', (client: WsClient) => {
@@ -32,8 +50,7 @@ export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
 
       client.on('message', (raw: Buffer | string) => {
         try {
-          const msg: ClientMessage = JSON.parse(raw.toString());
-          this.handleMessage(client, msg);
+          this.handleMessage(client, JSON.parse(raw.toString()));
         } catch {
           this.logger.warn('Invalid WebSocket message received');
         }
@@ -64,9 +81,7 @@ export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
     });
 
     this.progressTimer = setInterval(() => {
-      if (this.pendingProgress.size === 0) {
-        return;
-      }
+      if (this.pendingProgress.size === 0) return;
       for (const [, progress] of this.pendingProgress) {
         this.broadcast(DownloadEventType.Progress, progress);
       }
@@ -77,29 +92,59 @@ export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
-    if (this.progressTimer) {
-      clearInterval(this.progressTimer);
-    }
+    if (this.progressTimer) clearInterval(this.progressTimer);
   }
 
   private handleMessage(client: WsClient, msg: ClientMessage): void {
-    const topics = this.subscriptions.get(client);
-    if (!topics) {
-      return;
+    switch (msg.type) {
+      case ClientMessageType.Subscribe:
+        return this.handleSubscribe(client, msg.topics);
+      case ClientMessageType.Unsubscribe:
+        return this.handleUnsubscribe(client, msg.topics);
+      case ClientMessageType.Download:
+        this.handleDownload(client, msg.url);
+        return;
+      case ClientMessageType.Cancel:
+        this.engine.cancel(msg.id);
+        return;
+      case ClientMessageType.Remove:
+        this.engine.remove(msg.id);
+        return;
+      case ClientMessageType.Clear:
+        this.engine.clearCompleted();
+        return;
+      case ClientMessageType.List:
+        this.sendTo(client, { event: 'download.list', data: this.engine.list() });
+        return;
     }
+  }
 
-    const validRequested = (msg.topics ?? []).filter((t) => VALID_TOPICS.has(t));
+  private handleSubscribe(client: WsClient, topics: string[]): void {
+    const clientTopics = this.subscriptions.get(client);
+    if (!clientTopics) return;
+    const accepted = topics.filter((t) => VALID_TOPICS.has(t));
+    for (const topic of accepted) clientTopics.add(topic);
+    this.logger.debug(`Client subscribed to: ${accepted.join(', ')}`);
+  }
 
-    if (msg.type === 'subscribe') {
-      for (const topic of validRequested) {
-        topics.add(topic);
-      }
-      this.logger.debug(`Client subscribed to: ${validRequested.join(', ')}`);
-    } else if (msg.type === 'unsubscribe') {
-      for (const topic of validRequested) {
-        topics.delete(topic);
-      }
-      this.logger.debug(`Client unsubscribed from: ${validRequested.join(', ')}`);
+  private handleUnsubscribe(client: WsClient, topics: string[]): void {
+    const clientTopics = this.subscriptions.get(client);
+    if (!clientTopics) return;
+    for (const topic of topics) clientTopics.delete(topic);
+  }
+
+  private async handleDownload(client: WsClient, url: string): Promise<void> {
+    try {
+      const result = await this.engine.download({ url });
+      this.sendTo(client, { event: 'download.started', data: result });
+    } catch (error) {
+      this.sendTo(client, { event: 'error', data: { message: error instanceof Error ? error.message : String(error) } });
+    }
+  }
+
+  private sendTo(client: WsClient, payload: unknown): void {
+    if (client.readyState === client.OPEN) {
+      client.send(JSON.stringify(payload));
     }
   }
 

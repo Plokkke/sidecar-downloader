@@ -66,6 +66,15 @@ export class DownloadEngine {
     return this.items.find((item) => item.infos.id === id)?.infos;
   }
 
+  remove(id: string): boolean {
+    const item = this.items.find((d) => d.infos.id === id);
+    if (!item) return false;
+
+    this.items = this.items.filter((d) => d.infos.id !== id);
+    this.eventEmitter.emit(DownloadEventType.Removed, { id });
+    return true;
+  }
+
   clearCompleted(): number {
     const toRemove = this.items.filter(
       (d) => d.infos.status === DownloadStatus.Completed || d.infos.status === DownloadStatus.Failed,
