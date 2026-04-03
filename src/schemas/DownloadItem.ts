@@ -14,6 +14,7 @@ const downloadStatusSchema = z.nativeEnum(DownloadStatus);
 
 const downloadItemSchema = z.object({
   url: z.string().url(),
+  metadata: z.record(z.string()).optional(),
 });
 
 const downloadInfoSchema = z.object({
@@ -33,6 +34,7 @@ const downloadingInfosSchema = z.object({
   eta: z.number().nullable(),
   error: z.string().nullable(),
   source: z.string(),
+  metadata: z.record(z.string()).optional(),
   createdAt: z.coerce.date(),
   downloadedAt: z.coerce.date().nullable(),
   completedAt: z.coerce.date().nullable(),

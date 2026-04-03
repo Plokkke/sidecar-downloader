@@ -142,6 +142,7 @@ export class DownloadEngine {
         eta: null,
         error: null,
         source: plugin.name,
+        metadata: item.metadata,
         createdAt: new Date(),
         downloadedAt: null,
         completedAt: null,
@@ -164,6 +165,7 @@ export class DownloadEngine {
 
       const { value, unit } = infos.size ? humanFileSize(infos.size) : { value: NaN, unit: '' };
       this.logger.log(`Downloading ${infos.fileName} (${value}${unit})`);
+      this.emitProgress(active);
 
       await this.pipeToFile(active, stream);
     } catch (error) {
@@ -198,12 +200,7 @@ export class DownloadEngine {
     active.infos.progress = 1;
     active.infos.downloadedAt = new Date();
 
-    const stat = fs.statSync(active.filePath);
-    this.logger.debug(`File written: ${active.filePath} (${stat.size} bytes)`);
-
     const archivePlugin = this.registry.findArchiveFor(active.filePath);
-    this.logger.debug(`Archive plugin for ${active.infos.fileName}: ${archivePlugin?.name ?? 'none'}`);
-
     if (archivePlugin) {
       await this.handleExtraction(active, archivePlugin);
     } else {
@@ -296,6 +293,7 @@ export class DownloadEngine {
       filePaths: active.infos.filePaths,
       size: active.infos.size,
       source: active.infos.source,
+      metadata: active.infos.metadata,
       downloadedAt: active.infos.downloadedAt,
       completedAt: active.infos.completedAt,
     });

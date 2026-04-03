@@ -23,7 +23,7 @@ export type DownloadProgressEvent = {
 
 export type DownloadCompletedEvent = Pick<
   DownloadingInfos,
-  'id' | 'fileName' | 'filePaths' | 'size' | 'source' | 'downloadedAt' | 'completedAt'
+  'id' | 'fileName' | 'filePaths' | 'size' | 'source' | 'metadata' | 'downloadedAt' | 'completedAt'
 >;
 
 export type DownloadFailedEvent = Pick<DownloadingInfos, 'id' | 'fileName' | 'error' | 'source'>;

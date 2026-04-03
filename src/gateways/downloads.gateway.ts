@@ -23,7 +23,7 @@ enum ClientMessageType {
 type ClientMessage =
   | { type: ClientMessageType.Subscribe; topics: string[] }
   | { type: ClientMessageType.Unsubscribe; topics: string[] }
-  | { type: ClientMessageType.Download; url: string }
+  | { type: ClientMessageType.Download; url: string; metadata?: Record<string, string> }
   | { type: ClientMessageType.Cancel; id: string }
   | { type: ClientMessageType.Remove; id: string }
   | { type: ClientMessageType.Clear }
@@ -102,7 +102,7 @@ export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
       case ClientMessageType.Unsubscribe:
         return this.handleUnsubscribe(client, msg.topics);
       case ClientMessageType.Download:
-        this.handleDownload(client, msg.url);
+        this.handleDownload(client, msg.url, msg.metadata);
         return;
       case ClientMessageType.Cancel:
         this.engine.cancel(msg.id);
@@ -133,9 +133,9 @@ export class DownloadsGateway implements OnModuleInit, OnModuleDestroy {
     for (const topic of topics) clientTopics.delete(topic);
   }
 
-  private async handleDownload(client: WsClient, url: string): Promise<void> {
+  private async handleDownload(client: WsClient, url: string, metadata?: Record<string, string>): Promise<void> {
     try {
-      const result = await this.engine.download({ url });
+      const result = await this.engine.download({ url, metadata });
       this.sendTo(client, { event: 'download.started', data: result });
     } catch (error) {
       this.sendTo(client, { event: 'error', data: { message: error instanceof Error ? error.message : String(error) } });
